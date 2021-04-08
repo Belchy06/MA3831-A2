@@ -90,7 +90,7 @@ if __name__ == '__main__':
         print('Subjects: {}'.format(subjects))
         print('\n\n\n')
 
-        data = pd.read_csv("combined_dat.csv")
+        data = pd.read_csv("Data/combined_dat.csv")
         vec = TfidfVectorizer()
         features = vec.fit_transform(data['SUBJECTS'])
         knn = NearestNeighbors(n_neighbors=10, metric='cosine')

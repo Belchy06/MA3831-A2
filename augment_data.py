@@ -96,7 +96,7 @@ def thread_function(index, data):
             constructed_string = constructed_string + " " + re.sub('[^A-za-z0-9]+', ' ', title).lower()
 
             fields = [row[1].COURSENAME,  # COURSENAME
-                      ''.join(filter(lambda x: x in PRINTABLE, title)),  # COMBINED_TITLE
+                      title,  # COMBINED_TITLE
                       res_type,  # RESOURCE_TYPE
                       constructed_string]  # SUBJECTS
             with open(r'output{}.csv'.format(index), 'a', newline='') as file:
@@ -122,8 +122,10 @@ def preprocess_data(data):
     for column in data:
         data[column] = [re.sub("[\"']", '', elem.lower()) for elem in data[column].tolist()]
         data[column] = [elem.replace("\n", " ") for elem in data[column].tolist()]
-        data[column] = [re.sub(r'\s+', ' ', elem) for elem in data[column].tolist()]
+        data[column] = [re.sub(r'[^A-za-z0-9]+', ' ', elem) for elem in data[column].tolist()]
+        data[column] = [re.sub(r'[\[\]]', ' ', elem) for elem in data[column].tolist()]
         data[column] = [elem.replace(u'\ufffd', '') for elem in data[column].tolist()]
+        data[column] = [re.sub('[ ]{2,}', ' ', elem) for elem in data[column].tolist()]
     data = data[data['RESOURCE_TYPE'].isin(ALLOWED_RESOURCE_TYPES)]
     return data
 
@@ -144,17 +146,21 @@ def subset_data(data):
 def strip_whitespace(data):
     for column in data:
         data[column] = [elem.strip() for elem in data[column].tolist()]
-        data[column] = [re.sub('[ ]{2,}', ' ', elem) for elem in dataset[column].tolist()]
+        data[column] = [re.sub('[ ]{2,}', ' ', elem) for elem in data[column].tolist()]
     return data
 
 
 if __name__ == "__main__":
     dataset = pd.read_csv("data.csv")
-    dataset = preprocess_data(dataset)
-    subset_based_on_title = subset_data(dataset)
+    processed_data = preprocess_data(dataset)
+    processed_data.to_csv("preprocessed_data.csv", index=False, encoding='utf-8-sig')
+    print('Original length: {}'.format(len(processed_data)))
+    # subset_based_on_title = subset_data(dataset)
     # Select only the rows that contain a unique COMBINED_TITLE
-    unique_data = subset_based_on_title.drop_duplicates(subset=["COMBINED_TITLE"])
+    unique_data = processed_data.drop_duplicates(subset=["COMBINED_TITLE"])
+    print('Unique resources: {}'.format(len(unique_data)))
 
+    # thread_function(1, unique_data.iloc[0:2])
     """
     MULTI-THREADING
     """
@@ -174,10 +180,10 @@ if __name__ == "__main__":
         print("Main: \tThread {} done".format(index))
 
     """
-    COMBINING FILES
+    COMBINING TEMP FILES
     """
     # Combine files
-    with open(r'combined_dat.csv', 'a', newline='') as f:
+    with open(r'resource_data.csv', 'a', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(['COURSENAME', 'COMBINED_TITLE', 'RESOURCE_TYPE', 'SUBJECTS'])
 
@@ -185,7 +191,31 @@ if __name__ == "__main__":
     combined_csv = pd.concat([pd.read_csv(f) for f in all_files])
     combined_csv = strip_whitespace(combined_csv)
     # export to csv
-    combined_csv.to_csv("combined_dat.csv", index=False, encoding='utf-8-sig')
+    combined_csv.to_csv("resource_data.csv", index=False, encoding='utf-8-sig')
     # Remove temp files
     for file in all_files:
         os.remove(file)
+
+    """
+    MERGE RESOURCE AND COURSE FILES
+    """
+    resource_data = combined_csv
+    course_data = processed_data
+    resource_data = resource_data[['COMBINED_TITLE', 'SUBJECTS']]
+    course_data = course_data[['COURSENAME', 'COMBINED_TITLE', 'RESOURCE_TYPE']]
+    for index, resource in course_data.iterrows():
+        title = resource[1]
+        resource_subjects = resource_data[resource_data['COMBINED_TITLE'] == title]['SUBJECTS']
+        course_data.loc[index, 'SUBJECTS'] = resource_subjects.values[0]
+    course_data.to_csv("merged_data.csv", index=False, encoding='utf-8-sig')
+
+
+
+    """
+    AGGREGATE COURSE SUBJECTS
+    """
+    # dataset = pd.read_csv("combined_dat.csv")
+    # dataset = dataset[['COURSENAME', 'SUBJECTS']]
+    # new_ds = dataset.iloc[:]
+    # new_df = new_ds.groupby(new_ds['COURSENAME'], as_index=False).agg(' '.join)
+    # new_df.to_csv("course_subset.csv", index=False, encoding='utf-8-sig')

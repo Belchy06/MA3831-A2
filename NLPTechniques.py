@@ -1,8 +1,6 @@
 import csv
 import nltk
 import pandas as pd
-
-from nltk.corpus import stopwords
 from nltk.corpus import wordnet as wn
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
@@ -11,6 +9,9 @@ nltk.download('stopwords')
 nltk.download('punkt')
 nltk.download('wordnet')
 nltk.download('averaged_perceptron_tagger')
+
+stopwords = nltk.corpus.stopwords.words('english')
+stopwords.append('periodicals')
 
 # 1. Stopword removal
 # 2. Lemmatization
@@ -25,7 +26,7 @@ nltk.download('averaged_perceptron_tagger')
 
 def remove_stopwords(dataset):
     for index, resource in dataset.iterrows():
-        dataset.loc[index, 'SUBJECTS'] = ' '.join([subject for subject in resource.SUBJECTS.split(' ') if subject not in stopwords.words('english')])
+        dataset.loc[index, 'SUBJECTS'] = ' '.join([subject for subject in resource.SUBJECTS.split(' ') if subject not in stopwords])
     return dataset
 
 
@@ -53,10 +54,11 @@ def get_wordnet_pos(tag):
 
 
 if __name__ == '__main__':
-    data = pd.read_csv('merged_data.csv')
+    data = pd.read_csv('unique_resources.csv')
     data = remove_stopwords(data)
     data = lemmatize(data)
     print(data)
+    data.to_csv("unique_NLP_resources.csv", index=False, encoding='utf-8-sig')
 
 
 

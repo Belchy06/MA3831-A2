@@ -12,6 +12,7 @@ nltk.download('averaged_perceptron_tagger')
 
 stopwords = nltk.corpus.stopwords.words('english')
 stopwords.append('periodicals')
+stopwords.append('journal')
 
 # 1. Stopword removal
 # 2. Lemmatization
@@ -54,11 +55,11 @@ def get_wordnet_pos(tag):
 
 
 if __name__ == '__main__':
-    data = pd.read_csv('unique_resources.csv')
+    data = pd.read_csv('filtered_unique.csv')
     data = remove_stopwords(data)
+    data.to_csv("filtered_unique_SW.csv", index=False, encoding='utf-8-sig')
     data = lemmatize(data)
-    print(data)
-    data.to_csv("unique_NLP_resources.csv", index=False, encoding='utf-8-sig')
+    data.to_csv("filtered_unique_SW+Lem.csv", index=False, encoding='utf-8-sig')
 
 
 

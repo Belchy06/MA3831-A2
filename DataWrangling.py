@@ -82,7 +82,7 @@ def thread_function(index, data):
                 else:
                     print("Thread {}, Index {}: WORK OTHER ERROR".format(index, i))
             # Remove punctuation
-            # constructed_string = constructed_string + " " + title
+            constructed_string = constructed_string + " " + title
             constructed_string = re.sub('[ ]{2,}', ' ', constructed_string.strip())
             fields = [row[1].COURSENAME,  # COURSENAME
                       title,  # COMBINED_TITLE
@@ -139,22 +139,21 @@ def merge_datasets(courses, resources):
     return course_data
 
 
-def get_subset_based_on_title(data):
-    # resource has more than 1 associated course
-    subset1 = data.groupby(["COMBINED_TITLE"]).count().sort_values(["COURSENAME"], ascending=False).reset_index()[
-        ['COMBINED_TITLE', 'COURSENAME']]
-    ss1 = list(set(subset1[subset1['COURSENAME'] >= 2]['COMBINED_TITLE']))
-    subset_based_on_title = data[data['COMBINED_TITLE'].isin(ss1)]
-    return subset_based_on_title
-
-
-def get_subset_based_on_course(data):
-    # Course has more than 4 associated resources
+def filter_based_on_resource_list_length(data):
+    # Course has more than 2 associated resources
     subset2 = data.groupby(["COURSENAME"]).count().sort_values(["COMBINED_TITLE"], ascending=False).reset_index()[
         ['COURSENAME', 'COMBINED_TITLE']]
-    ss2 = list(set(subset2[subset2['COMBINED_TITLE'] >= 5]['COURSENAME']))
-    subset_based_on_course = data[data['COURSENAME'].isin(ss2)]
-    return subset_based_on_course
+    ss2 = list(set(subset2[subset2['COMBINED_TITLE'] >= 3]['COURSENAME']))
+    subset_based_on_resource_list_length = data[data['COURSENAME'].isin(ss2)]
+    return subset_based_on_resource_list_length
+
+
+def filter_unique_resources(data):
+    # resource has only 1 associated course
+    subset1 = data.groupby(["COMBINED_TITLE"]).count().sort_values(["COURSENAME"], ascending=False).reset_index()[['COMBINED_TITLE', 'COURSENAME']]
+    ss1 = list(set(subset1[subset1['COURSENAME'] < 2]['COMBINED_TITLE']))
+    subset_based_on_title = data[data['COMBINED_TITLE'].isin(ss1)]
+    return subset_based_on_title
 
 
 if __name__ == "__main__":
@@ -166,15 +165,14 @@ if __name__ == "__main__":
         if not os.path.isfile('cleaned_data.csv'):
             preprocessed_data = preprocess_data(dataset)
             cleaned_data = remove_duplicates(preprocessed_data)
-            cleaned_data.to_csv("cleaned_data.csv", index=False, encoding='utf-8-sig')
+            unique_resource_data = filter_unique_resources(cleaned_data)
+            unique_resource_data.to_csv("cleaned_data.csv", index=False, encoding='utf-8-sig')
             # Select only the rows that contain a unique COMBINED_TITLE
-            unique_resources = cleaned_data.drop_duplicates(subset=["COMBINED_TITLE"])
-            print('Original data length: {}'.format(len(dataset)))
-            print('Preprocessed data length: {}'.format(len(preprocessed_data)))
-            print('Cleaned data length: {}'.format(len(cleaned_data)))
-            print('Unique resources: {}'.format(len(unique_resources)))
-
-
+            unique_resources = unique_resource_data.drop_duplicates(subset=["COMBINED_TITLE"])
+            print('Original data shape: {}'.format(dataset.shape))
+            print('Preprocessed data shape: {}'.format(preprocessed_data.shape))
+            print('Cleaned data shape: {}'.format(cleaned_data.shape))
+            print('Unique resources shape: {}'.format(unique_resource_data.shape))
 
         """
         MULTI-THREADING
@@ -227,12 +225,9 @@ if __name__ == "__main__":
     """
     SUBSET THE MERGED DATA SET
     """
-    if not os.path.isfile('title_subset.csv') and not os.path.isfile('course_subset.csv'):
+    if not os.path.isfile('filtered_unique.csv'):
         dataset = pd.read_csv('merged_data.csv')
-        print('Original: {}'.format(len(dataset)))
-        title_sub = get_subset_based_on_title(dataset.copy())
-        title_sub.to_csv("title_subset.csv", index=False, encoding='utf-8-sig')
-        print('Title subset: {}'.format(len(title_sub)))
-        course_sub = get_subset_based_on_course(dataset.copy())
-        course_sub.to_csv("course_subset.csv", index=False, encoding='utf-8-sig')
-        print('Course subset: {}'.format(len(course_sub)))
+        print('Original: {}'.format(dataset.shape))
+        filtered = filter_based_on_resource_list_length(dataset.copy())
+        filtered.to_csv("filtered_unique.csv", index=False, encoding='utf-8-sig')
+        print('Course subset: {}'.format(filtered.shape))

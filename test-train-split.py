@@ -1,22 +1,21 @@
 import traceback
 from collections import namedtuple
-
 import numpy as np
 import pandas as pd
 import time
-
 import matplotlib.pyplot as plt
-from sklearn import metrics, naive_bayes
-
+from sklearn import metrics
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split, cross_validate
 from sklearn.naive_bayes import GaussianNB
+from sklearn.naive_bayes import MultinomialNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 
-if __name__ == '__main__':
-    data = pd.read_csv('filtered_unique_SW.csv')
+
+def find_accuracy(data, prompt):
+    print(prompt)
     processed_features = data.iloc[:, 3].values.astype(str)
     labels = data.iloc[:, 0].values.astype(str)
     X_train, X_test, y_train, y_test = train_test_split(processed_features, labels, test_size=0.2, random_state=0)
@@ -26,10 +25,9 @@ if __name__ == '__main__':
     gnb_structs = []
     nb_structs = []
     for n in range(1, 3):
-        print('\nn: {}'.format(n))
-        start_time = time.time()
+        print('n-gram range: 1-{}'.format(n))
+        print('-' * 200)
         vectorizer = CountVectorizer(ngram_range=(1, n)).fit(X_train)
-        fit_time = time.time() - start_time
         x_test = vectorizer.transform(X_test)
         x_train = vectorizer.transform(X_train)
         print('X test shape: {}'.format(x_test.shape))
@@ -54,8 +52,6 @@ if __name__ == '__main__':
                     if accuracy > best_accuracy[0]:
                         best_accuracy[0] = accuracy
                         best_accuracy[1] = k
-                    # print('-' * 200)
-                    # print('K: {}, Accuracy: {}, Fit Time: {}, Run Time: {}'.format(k, accuracy, fit_time, run_time))
                 s = struct(accuracies=accuracies, n=n)
                 knn_structs.append(s)
                 print('Best Accuracy: {} @ k: {}'.format(best_accuracy[0], best_accuracy[1]))
@@ -72,12 +68,10 @@ if __name__ == '__main__':
                 s = struct(accuracies=scores.get('test_accuracy'), n=n)
                 svc_structs.append(s)
                 print('Best Accuracy: {}'.format(np.max(scores.get('test_accuracy'))))
-                print('Average fit time" {}'.format(np.mean(scores.get('fit_time'))))
+                print('Average fit time: {}'.format(np.mean(scores.get('fit_time'))))
                 print('Average pred time: {}'.format(np.mean(scores.get('score_time'))))
                 print('=' * 200)
-
             elif i == 2:
-                # pass
                 try:
                     print('GNB:')
                     gnb = GaussianNB()
@@ -95,24 +89,24 @@ if __name__ == '__main__':
                 except Exception:
                     print('not enough mem')
             elif i == 3:
-                pass
-                # print('NB:')
-                # try:
-                #     nb = naive_bayes.MultinomialNB()
-                #     start_time = time.time()
-                #     nb.fit(x_train.toarray(), y_train)
-                #     print('Fit Time: {}'.format(time.time() - start_time))
-                #     start_time = time.time()
-                #     y_pred = nb.predict(x_test.toarray())
-                #     print('Pred time: {}'.format(time.time() - start_time))
-                #     accuracy = metrics.accuracy_score(y_test, y_pred)
-                #     print('Accuracy: {}'.format(accuracy))
-                #     print('=' * 200)
-                #     s = struct(accuracies=accuracy, n=n)
-                #     nb_structs.append(s)
-                # except Exception:
-                #     traceback.print_exc()
-
+                print('MNB:')
+                try:
+                    nb = MultinomialNB()
+                    start_time = time.time()
+                    nb.fit(x_train.toarray(), y_train)
+                    print('Fit Time: {}'.format(time.time() - start_time))
+                    start_time = time.time()
+                    y_pred = nb.predict(x_test.toarray())
+                    print('Pred time: {}'.format(time.time() - start_time))
+                    accuracy = metrics.accuracy_score(y_test, y_pred)
+                    print('Accuracy: {}'.format(accuracy))
+                    print('=' * 200)
+                    s = struct(accuracies=accuracy, n=n)
+                    nb_structs.append(s)
+                except Exception:
+                    traceback.print_exc()
+    print('=' * 200)
+    print('\n\n\n')
     dat = []
     for s in knn_structs:
         dat.append(s.accuracies)
@@ -150,5 +144,14 @@ if __name__ == '__main__':
     plt.boxplot(dat)
     plt.xlabel('n')
     plt.ylabel('accuracy')
-    plt.title('MultiVariable NB Accuracy with n-grams')
+    plt.title('Multinomial NB Accuracy with n-grams')
     plt.show()
+
+
+if __name__ == '__main__':
+    dataset = pd.read_csv('filtered_unique.csv')
+    find_accuracy(dataset, "Normal Data")
+    dataset = pd.read_csv('filtered_unique_SW.csv')
+    find_accuracy(dataset, "Stopwords Removed")
+    dataset = pd.read_csv('filtered_unique_SW+Lem.csv')
+    find_accuracy(dataset, "Stopwords Removed and Lemmatized")
